@@ -4,6 +4,8 @@
 import getopt
 import sys
 import urllib
+from urllib2 import build_opener
+import urllib2
 import xml.etree.ElementTree as ET
 
 URL_PATTERN_ID = 'http://www.xiami.com/song/playlist/id/%d'
@@ -12,8 +14,14 @@ URL_PATTERN_ALBUM = '%s/type/1' % URL_PATTERN_ID
 
 
 def get_playlist_from_url(url):
-    return parse_playlist(urllib.urlopen(url).read())
-
+    print url
+    opener = build_opener()
+    opener.addheaders = [('User-agent', 'Mozilla/5.0')]
+    response = opener.open(url)
+    response_text = response.read()
+    print response_text
+    #return parse_playlist(urllib.urlopen(url).read())
+    return parse_playlist(response_text)
 
 def parse_playlist(playlist):
     xml = ET.fromstring(playlist)
@@ -24,6 +32,7 @@ def parse_playlist(playlist):
         }
         for track in xml.iter('{http://xspf.org/ns/0/}track')
     ]
+
 
 
 def decode_location(location):
@@ -46,9 +55,32 @@ def decode_location(location):
 
     return urllib.unquote(url).replace('^', '0')
 
+class MyOpener(urllib.FancyURLopener):
+     version = 'QuickTime/7.6.2 (verqt=7.6.2;cpu=IA32;so=Mac 10.5.8)'
 
 def download(url, dest):
-    urllib.urlretrieve(url, dest)
+    #urllib._urlopener = MyOpener()
+    #urllib.urlretrieve(url, dest)
+    opener = build_opener()
+    opener.addheaders = [('User-agent', 'Mozilla/5.0')]
+    opener.urlretrieve(url, dest)
+
+def dlfile(url, dest):
+    # Open the url
+    #f = urlopen(url)
+    print "downloading : " + url
+    opener = build_opener()
+    opener.addheaders = [('User-agent', 'Mozilla/5.0')]
+    checkin_headers = {'Referer':'http://www.xiami.com/web', 'User-Agent':'Opera/9.60',}
+    checkin_request = urllib2.Request(url, None, checkin_headers)
+    response = opener.open(checkin_request)
+    print "downloading2 : " + url
+
+    # Open our local file for writing
+    with open(dest, "wb") as local_file:
+        local_file.write(response.read())
+
+
 
 
 def usage():
@@ -76,6 +108,7 @@ if __name__ == '__main__':
     for key, value in optlist:
         if key == '-a':
             playlists.append(URL_PATTERN_ALBUM % int(value))
+            print playlists
         elif key == '-s':
             playlists.append(URL_PATTERN_SONG % int(value))
 
@@ -93,6 +126,8 @@ if __name__ == '__main__':
     for i in xrange(len(tracks)):
         track = tracks[i]
         filename = '%s.mp3' % track['title']
+        print unicode(filename).encode(sys.stdout.encoding, 'replace')
         url = decode_location(track['location'])
-        print '[%02d/%02d] Downloading %s...' % (i, len(tracks), filename)
-        download(url, filename)
+        print unicode('[%02d/%02d] Downloading %s...' % (i, len(tracks), filename)).encode(sys.stdout.encoding, 'replace')
+        #download(url, filename)
+        dlfile(url, filename)
